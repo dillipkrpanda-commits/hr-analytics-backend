@@ -5,7 +5,15 @@ import sqlite3
 from pydantic import BaseModel
 from llm import generate_sql
 import re
+from fastapi import Response
 
+@app.head("/")
+def head_root():
+    return Response(status_code=200)
+
+@app.head("/docs")
+def head_docs():
+    return Response(status_code=200)
 app = FastAPI()
 
 # -----------------------------
