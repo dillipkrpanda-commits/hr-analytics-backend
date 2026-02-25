@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI HR Analytics Assistant</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+    .fade-in { animation: fadeIn 0.3s ease-in; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    .pulse-spin { animation: spin 2s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body class="dark:bg-gray-900 transition-colors">
+  <div class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 transition-colors">
+    
+    <!-- Header -->
+    <header class="bg-white dark:bg-gray-800 shadow-sm sticky top-0 z-40 transition-colors border-b border-gray-200 dark:border-gray-700">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center">
+            <span class="text-white font-bold text-lg">📊</span>
+          </div>
+          <h1 class="text-2xl font-bold text-gray-900 dark:text-white">HR Analytics Assistant</h1>
+        </div>
+        <button onclick="toggleDarkMode()" class="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition">
+          <span id="themeIcon" class="text-xl">🌙</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      
+      <!-- Search Section -->
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-8 transition-colors">
+        <div class="flex flex-col sm:flex-row gap-3">
+          <input 
+            id="question" 
+            type="text"
+            placeholder="Ask about employee performance, departments, ratings..." 
+            class="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition"
+            onkeypress="if(event.key==='Enter') ask()"
+          />
+          <button 
+            onclick="ask()" 
+            class="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-medium rounded-lg transition flex items-center gap-2"
+          >
+            <span id="askIcon">🔍</span>
+            <span>Ask</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- KPI Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div class="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-lg shadow-md p-6 fade-in">
+          <p class="text-sm font-medium opacity-90">Overall KPI</p>
+          <p id="kpi" class="text-3xl font-bold mt-2">-</p>
+        </div>
+        <div class="bg-gradient-to-br from-indigo-500 to-indigo-600 text-white rounded-lg shadow-md p-6 fade-in">
+          <p class="text-sm font-medium opacity-90">Total Employees</p>
+          <p id="employees" class="text-3xl font-bold mt-2">-</p>
+        </div>
+        <div class="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-lg shadow-md p-6 fade-in">
+          <p class="text-sm font-medium opacity-90">Data Points</p>
+          <p id="dataPoints" class="text-3xl font-bold mt-2">-</p>
+        </div>
+        <div class="bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-lg shadow-md p-6 fade-in">
+          <p class="text-sm font-medium opacity-90">Status</p>
+          <p id="status" class="text-3xl font-bold mt-2">✓</p>
+        </div>
+      </div>
+
+      <!-- Chart Type Selection -->
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6 transition-colors">
+        <div class="flex flex-wrap gap-2 items-center">
+          <span class="text-gray-700 dark:text-gray-300 font-medium">Chart Type:</span>
+          <button onclick="switchChart('doughnut')" id="btn-doughnut" class="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium transition hover:bg-blue-700">◯ Doughnut</button>
+          <button onclick="switchChart('bar')" id="btn-bar" class="px-4 py-2 bg-gray-300 dark:bg-gray-600 text-gray-900 dark:text-white rounded-lg font-medium transition hover:bg-gray-400 dark:hover:bg-gray-500">📊 Bar</button>
+          <button onclick="switchChart('line')" id="btn-line" class="px-4 py-2 bg-gray-300 dark:bg-gray-600 text-gray-900 dark:text-white rounded-lg font-medium transition hover:bg-gray-400 dark:hover:bg-gray-500">📈 Line</button>
+          <button onclick="switchChart('table')" id="btn-table" class="px-4 py-2 bg-gray-300 dark:bg-gray-600 text-gray-900 dark:text-white rounded-lg font-medium transition hover:bg-gray-400 dark:hover:bg-gray-500">📋 Table</button>
+        </div>
+      </div>
+
+      <!-- Loading State -->
+      <div id="loadingState" class="hidden bg-white dark:bg-gray-800 rounded-lg shadow-md p-12 text-center fade-in transition-colors">
+        <div class="inline-block">
+          <svg class="pulse-spin w-12 h-12 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" fill="none" opacity="0.3"/>
+            <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <p class="mt-4 text-gray-600 dark:text-gray-400 font-medium">Analyzing data...</p>
+      </div>
+
+      <!-- Error State -->
+      <div id="errorState" class="hidden bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg shadow-md p-6 fade-in transition-colors">
+        <p class="text-red-800 dark:text-red-300 font-medium">⚠️ <span id="errorMessage">An error occurred</span></p>
+      </div>
+
+      <!-- Chart Section -->
+      <div id="chartSection" class="hidden bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-8 transition-colors fade-in">
+        <div class="flex flex-col lg:flex-row gap-8">
+          <div class="flex-1">
+            <div class="mb-4">
+              <p class="text-sm text-gray-600 dark:text-gray-400" id="breadcrumb">Loading...</p>
+              <p class="text-lg font-semibold text-gray-900 dark:text-white" id="dimensionLabel">-</p>
+            </div>
+            <canvas id="chart" class="max-h-96"></canvas>
+          </div>
+          <div id="tableContainer" class="hidden flex-1 overflow-x-auto">
+            <table id="dataTable" class="w-full text-sm">
+              <thead class="bg-gray-100 dark:bg-gray-700">
+                <tr id="tableHeader"></tr>
+              </thead>
+              <tbody id="tableBody" class="divide-y divide-gray-200 dark:divide-gray-600"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Insight Section -->
+      <div id="insightSection" class="hidden fade-in">
+        <div id="insight" class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 border-l-6 border-blue-600 transition-colors"></div>
+      </div>
+
+    </main>
+  </div>
+
+  <script>
+    let chartInstance = null;
+    let currentChartType = 'doughnut';
+    let lastResult = null;
+    const API_URL = 'http://localhost:8000';
+
+    // Dark Mode Toggle
+    function toggleDarkMode() {
+      const html = document.documentElement;
+      const isDark = html.classList.toggle('dark');
+      localStorage.setItem('darkMode', isDark);
+      updateThemeIcon();
+    }
+
+    function updateThemeIcon() {
+      const isDark = document.documentElement.classList.contains('dark');
+      document.getElementById('themeIcon').innerText = isDark ? '☀️' : '🌙';
+    }
+
+    // Initialize dark mode from localStorage
+    if (localStorage.getItem('darkMode') === 'true') {
+      document.documentElement.classList.add('dark');
+      updateThemeIcon();
+    }
+
+    // Switch Chart Type
+    function switchChart(type) {
+      currentChartType = type;
+      document.querySelectorAll('[id^="btn-"]').forEach(btn => {
+        btn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+        btn.classList.add('bg-gray-300', 'dark:bg-gray-600', 'hover:bg-gray-400', 'dark:hover:bg-gray-500');
+      });
+      document.getElementById(`btn-${type}`).classList.add('bg-blue-600', 'hover:bg-blue-700');
+      document.getElementById(`btn-${type}`).classList.remove('bg-gray-300', 'dark:bg-gray-600', 'hover:bg-gray-400', 'dark:hover:bg-gray-500');
+      
+      if (lastResult) {
+        renderChart(lastResult);
+      }
+    }
+
+    // Main Ask Function
+    async function ask() {
+      const question = document.getElementById('question').value.trim();
+      if (!question) {
+        showError('Please enter a question');
+        return;
+      }
+
+      showLoading(true);
+      document.getElementById('errorState').classList.add('hidden');
+
+      try {
+        const response = await fetch(`${API_URL}/ask`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question })
+        });
+
+        const result = await response.json();
+
+        if (result.error) {
+          showError(result.error);
+          showLoading(false);
+          return;
+        }
+
+        lastResult = result;
+        render(result);
+        showLoading(false);
+
+      } catch (error) {
+        showError(`Failed to connect to server: ${error.message}`);
+        showLoading(false);
+      }
+    }
+
+    function showLoading(show) {
+      document.getElementById('loadingState').classList.toggle('hidden', !show);
+      document.getElementById('chartSection').classList.toggle('hidden', show);
+      document.getElementById('insightSection').classList.toggle('hidden', show);
+    }
+
+    function showError(message) {
+      document.getElementById('errorMessage').innerText = message;
+      document.getElementById('errorState').classList.remove('hidden');
+      document.getElementById('chartSection').classList.add('hidden');
+      document.getElementById('insightSection').classList.add('hidden');
+    }
+
+    function render(result) {
+      const data = result.data;
+      if (!data || data.length === 0) {
+        showError('No data returned from query');
+        return;
+      }
+
+      document.getElementById('kpi').innerText = result.kpi ? result.kpi.toFixed(2) : 'N/A';
+      document.getElementById('employees').innerText = result.total_employees || '-';
+      document.getElementById('dataPoints').innerText = data.length;
+      document.getElementById('status').innerText = '✓';
+
+      document.getElementById('breadcrumb').innerText = `Metric: ${data[0].metric ? '✓' : '?'}`;
+      document.getElementById('dimensionLabel').innerText = `${data.length} categories analyzed`;
+
+      document.getElementById('chartSection').classList.remove('hidden');
+      document.getElementById('insightSection').classList.remove('hidden');
+
+      renderChart(result);
+      generateExecutiveInsight(data.map(d => d.category), data.map(d => d.metric));
+    }
+
+    function renderChart(result) {
+      const data = result.data;
+      const labels = data.map(d => d.category);
+      const values = data.map(d => d.metric);
+
+      if (currentChartType === 'table') {
+        renderTable(data, labels, values);
+        return;
+      }
+
+      document.getElementById('tableContainer').classList.add('hidden');
+      const ctx = document.getElementById('chart').getContext('2d');
+      
+      if (chartInstance) {
+        chartInstance.destroy();
+      }
+
+      let chartConfig = {
+        type: currentChartType,
+        data: {
+          labels,
+          datasets: [{
+            data: values,
+            backgroundColor: ['#0078D4', '#00B7C3', '#6B69D6', '#50C878', '#FFB627', '#FF6B6B'],
+            borderColor: '#fff',
+            borderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          plugins: {
+            legend: { display: true, position: 'bottom' },
+            datalabels: {
+              color: '#fff',
+              font: { weight: 'bold' }
+            }
+          }
+        }
+      };
+
+      if (currentChartType === 'doughnut' || currentChartType === 'pie') {
+        chartConfig.plugins = [ChartDataLabels];
+        chartConfig.options.plugins.datalabels.formatter = (value) => value.toFixed(2);
+      } else if (currentChartType === 'bar') {
+        chartConfig.options.scales = {
+          y: { beginAtZero: true }
+        };
+      }
+
+      chartInstance = new Chart(ctx, chartConfig);
+    }
+
+    function renderTable(data, labels, values) {
+      document.getElementById('tableContainer').classList.remove('hidden');
+      const tableHeader = document.getElementById('tableHeader');
+      const tableBody = document.getElementById('tableBody');
+
+      tableHeader.innerHTML = '<th class="px-4 py-2 text-left">Category</th><th class="px-4 py-2 text-left">Metric Value</th>';
+      tableBody.innerHTML = '';
+
+      data.forEach(row => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="px-4 py-2 text-gray-900 dark:text-white">${row.category}</td>
+          <td class="px-4 py-2 text-gray-900 dark:text-white font-semibold">${typeof row.metric === 'number' ? row.metric.toFixed(2) : row.metric}</td>
+        `;
+        tableBody.appendChild(tr);
+      });
+    }
+
+    function generateExecutiveInsight(labels, values) {
+      const total = values.reduce((a, b) => a + b, 0);
+      const max = Math.max(...values);
+      const min = Math.min(...values);
+      const maxLabel = labels[values.indexOf(max)];
+      const minLabel = labels[values.indexOf(min)];
+      const variancePercent = (((max - min) / total) * 100).toFixed(1);
+
+      let riskLevel, borderColor, badgeColor;
+      if (variancePercent < 5) {
+        riskLevel = 'Low Risk';
+        borderColor = 'border-green-500';
+        badgeColor = 'bg-green-500';
+      } else if (variancePercent < 15) {
+        riskLevel = 'Moderate Risk';
+        borderColor = 'border-yellow-500';
+        badgeColor = 'bg-yellow-500';
+      } else {
+        riskLevel = 'High Risk';
+        borderColor = 'border-red-500';
+        badgeColor = 'bg-red-500';
+      }
+
+      const narrative = `
+        <div class="inline-block ${badgeColor} text-white px-3 py-1 rounded-full text-sm font-bold mb-3">
+          ${riskLevel}
+        </div>
+        <p class="font-semibold text-gray-900 dark:text-white mb-2">Executive Summary</p>
+        <p class="text-gray-700 dark:text-gray-300">
+          <strong>${maxLabel}</strong> demonstrates the strongest performance contribution (${max.toFixed(2)}),
+          while <strong>${minLabel}</strong> shows comparatively lower results (${min.toFixed(2)}).
+          A variance of <strong>${variancePercent}%</strong> indicates
+          ${riskLevel === 'Low Risk' ? 'a balanced structure.' : 'potential imbalance requiring attention.'}
+        </p>
+      `;
+
+      const insightBox = document.getElementById('insight');
+      insightBox.className = `bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 border-l-6 ${borderColor} transition-colors`;
+      insightBox.innerHTML = narrative;
+    }
+
+    // Initialize
+    updateThemeIcon();
+  </script>
+</body>
+</html>
