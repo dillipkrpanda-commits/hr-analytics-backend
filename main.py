@@ -1,19 +1,14 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
 import sqlite3
 from pydantic import BaseModel
 from llm import generate_sql
 import re
-from fastapi import Response
 
-@app.head("/")
-def head_root():
-    return Response(status_code=200)
-
-@app.head("/docs")
-def head_docs():
-    return Response(status_code=200)
+# -----------------------------
+# Create FastAPI App FIRST
+# -----------------------------
 app = FastAPI()
 
 # -----------------------------
@@ -26,6 +21,28 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# -----------------------------
+# HEAD Support (Fixes 405 Monitor Issue)
+# -----------------------------
+@app.head("/")
+def head_root():
+    return Response(status_code=200)
+
+@app.head("/health")
+def head_health():
+    return Response(status_code=200)
+
+# -----------------------------
+# Health & Root Endpoints
+# -----------------------------
+@app.get("/")
+def home():
+    return {"message": "HR BI Chatbot backend running"}
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
 
 # -----------------------------
 # Load CSV Data into SQLite
@@ -59,38 +76,24 @@ load_data()
 class Query(BaseModel):
     question: str
 
-
-# -----------------------------
-# Health Check
-# -----------------------------
-@app.get("/")
-def home():
-    return {"message": "HR BI Chatbot backend running"}
-
-
 # -----------------------------
 # SQL Safety Validator
 # -----------------------------
 def sanitize_sql(sql: str) -> str:
-
     sql = sql.strip().rstrip(";")
 
-    # Prevent multiple statements
     if ";" in sql:
         raise Exception("Only one SQL statement allowed.")
 
-    # Only allow SELECT queries
     if not sql.lower().startswith("select"):
         raise Exception("Only SELECT queries are allowed.")
 
-    # Prevent dangerous keywords
     forbidden = ["drop", "delete", "update", "insert", "alter", "truncate"]
     for word in forbidden:
         if re.search(rf"\b{word}\b", sql.lower()):
             raise Exception("Unsafe SQL detected.")
 
     return sql
-
 
 # -----------------------------
 # Ask Endpoint
@@ -99,10 +102,7 @@ def sanitize_sql(sql: str) -> str:
 def ask(query: Query):
 
     try:
-        # Generate SQL from LLM
         sql = generate_sql(query.question)
-
-        # Safety cleanup
         sql = sanitize_sql(sql)
 
         print("Generated SQL:", sql)
@@ -117,11 +117,8 @@ def ask(query: Query):
         data = []
         for row in rows:
             record = dict(zip(columns, row))
-
-            # Remove null categories
             if record.get("category") is None:
                 continue
-
             data.append(record)
 
         conn.close()
@@ -129,24 +126,20 @@ def ask(query: Query):
         if not data:
             return {"error": "No data returned."}
 
-        # -----------------------------
         # KPI Calculation
-        # -----------------------------
-        metrics = [d["metric"] for d in data if isinstance(d.get("metric"), (int, float))]
+        metrics = [
+            d["metric"] for d in data
+            if isinstance(d.get("metric"), (int, float))
+        ]
         kpi = round(sum(metrics) / len(metrics), 2) if metrics else None
 
-        # -----------------------------
         # Total Employees KPI
-        # -----------------------------
         conn = sqlite3.connect("database.db")
         total_employees = conn.execute(
             "SELECT COUNT(*) FROM employee"
         ).fetchone()[0]
         conn.close()
 
-        # -----------------------------
-        # Detect Time Series
-        # -----------------------------
         is_time_series = "strftime" in sql.lower()
 
         return {
